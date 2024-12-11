@@ -62,11 +62,10 @@ g(a, b) = \sum_{i=1}^n \left( Y_i - \left( a + b X_i \right) \right)^2
 $$
 
 En los modelos lineales robustos queremos cambiar la función de perdida tal que:
+
 - Sea Insensible a valores extremadamente grandes o outliers(o residuos grandes)
 - Crezca menos que mínimos cuadrados cuando miramos lo suficientemente lejos del cero
 - Tenga Alta eficiencia: si los datos de la muestra siguieran el modelo de regresión con errores normales, queremos que el estimador (beta) que el método robusta calcula se parezca al de mínimos cuadrados, por lo que la función de pérdida que el método robusto calcula debería parecerse al de mínimos cuadrado.
-
-
 
 
 $$
@@ -80,6 +79,51 @@ Una posibilidad es ajustar una recta usando un procedimiento de ajuste robusto, 
 Existen varias funciones $\rho$ que serán evaluadas en el presente trabajo. Por defecto, robustbase utiliza la bicuadrada (bisquare), pero también se pueden implementar lqq, welsh, optimal, etc.
 
 (VOY A VER SI SE PUEDEN AGREGAR LAS FORMAS DE ESTAS FUNCIONES)
+
+Las funciones $\rho$ más comunes son:
+
+1. Bisquare (Tukey):
+$$
+\rho(x) = \begin{cases}
+1 - (1 - (x/k)^2)^3 & \text{si } |x| \leq k \\
+1 & \text{si } |x| > k
+\end{cases}
+$$
+
+2. Huber:
+$$
+\rho(x) = \begin{cases}
+\frac{x^2}{2} & \text{si } |x| \leq k \\
+k|x| - \frac{k^2}{2} & \text{si } |x| > k
+\end{cases}
+$$
+
+3. Welsh:
+$$
+\rho(x) = 1 - \exp(-x^2/k^2)
+$$
+
+4. Hampel:
+$$
+\rho(x) = \begin{cases}
+\frac{x^2}{2} & \text{si } |x| \leq a \\
+a|x| - \frac{a^2}{2} & \text{si } a < |x| \leq b \\
+\frac{a(c|x| - x^2/2 - bc + b^2/2)}{c-b} & \text{si } b < |x| \leq c \\
+a(c - \frac{b}{2}) & \text{si } |x| > c
+\end{cases}
+$$
+
+5. LQQ (Linearly Quadratically Quadratic):
+$$
+\rho(x) = \begin{cases}
+\frac{x^2}{2} & \text{si } |x| \leq c_1 \\
+c_1|x| - \frac{c_1^2}{2} & \text{si } c_1 < |x| \leq c_2 \\
+\frac{(c_3|x| - x^2/2)}{c_3-c_2} & \text{si } c_2 < |x| \leq c_3 \\
+c_3 & \text{si } |x| > c_3
+\end{cases}
+$$
+
+Donde $k$, $a$, $b$, $c$, $c_1$, $c_2$ y $c_3$ son constantes que determinan los puntos de quiebre y la forma de cada función.
 
 Existen muchas otras propuestas de estimadores robustos para regresión, por ejemplo LMS (least median of squares), LTS (least trimmed squares), τ−estimadores de regresión, y casi todas están implementadas en R.
 
@@ -98,13 +142,13 @@ El dataset se divide en Entrenamiento y Prueba, de manera estratificada según e
 
 Luego utilizaremos esta nueva variable para realizar la división del dataset de manera estratificada.
 
-Categorías de la nueva variable
+## Categorías de la nueva variable
 
-Muy bajo: Menor a mediana (Q2)
-Bajo: entre mediana (Q2) y cuartil superior (Q3)
-Medio: entre cuartil superior (Q3) y límite superior (Q3 + 1.5 x IQR)
-Alto: entre limite superior y €100.000.000
-Muy Alto: mayor a €100.000.000 (representa los 10 jugadores mas caros)
+- Muy bajo: Menor a mediana (Q2)
+- Bajo: entre mediana (Q2) y cuartil superior (Q3)
+- Medio: entre cuartil superior (Q3) y límite superior (Q3 + 1.5 x IQR)
+- Alto: entre limite superior y €100.000.000
+- Muy Alto: mayor a €100.000.000 (representa los 10 jugadores mas caros)
 
 El objetivo es que quedan estratificados los jugadores mas caros u outliers, por eso no se realiza una división por debajo de Q2.
 ```{r, message=FALSE, warning=FALSE}
@@ -211,7 +255,7 @@ Todas las ligas están igual de representadas en el dataset, con lo cual el aná
 
 ### Jugadores por posición
 
-Predominan los jugadores que se desempeñan en el centro del campo, como defensores centrales o mediocampistas centrales o mixtos. Esto tiene cierta lógica ya que 3 o 4 jugadores de campo siempre se desempeñan en estas posiciones. Llama la atención la alta proporción de centrodelanteros, ya que los equipos suelen usar un colo jugador en esa posición.
+Predominan los jugadores que se desempeñan en el centro del campo, como defensores centrales o mediocampistas centrales o mixtos. Esto tiene cierta lógica ya que 3 o 4 jugadores de campo siempre se desempeñan en estas posiciones. Llama la atención la alta proporción de centrodelanteros, ya que los equipos suelen usar un solo jugador en esa posición.
 
 ### Jugadores por pie hábil.
 
@@ -233,12 +277,20 @@ df %>%
 
 ```
 
-alta a moderada correlación positiva entre goles y precio, moderada correlacion positiva entre asistencia y precio.
+### Correlación entre Goles y Precio
+Se observa una correlación positiva alta a moderada (Corr: 0.502). Esto sugiere que los jugadores que marcan más goles tienden a tener un valor de mercado más alto. La relación parece ser consistente a través de las diferentes ligas.
 
-baja correlación pero claramente negativa entre edad y precio.
+### Correlación entre Asistencias y Precio  
+Existe una correlación positiva moderada (Corr: 0.465). Indica que los jugadores que dan más asistencias también tienden a tener un mayor valor en el mercado. La correlación es algo menor que con los goles, sugiriendo que el mercado valora más la capacidad goleadora.
 
-Las ligas española y británica parecen tener los jugadores mejor cotizados, lo cual parece entendible siendo que son las ligas mas poderosas de la actualidad, y que tiene dos de los clubes con mayor podería económico: Real Madrid y Manchester City.
+### Correlación entre Edad y Precio
+Se observa una correlación negativa baja pero clara (Corr: -0.176). Sugiere que el valor de mercado tiende a disminuir con la edad del jugador. Esto tiene sentido desde una perspectiva de inversión, ya que los jugadores más jóvenes tienen mayor potencial de desarrollo y años de carrera por delante.
 
+### Distribución por Ligas
+Los diagramas de caja (boxplots) muestran diferencias en la distribución de precios entre ligas. Las ligas española y británica presentan valores más altos en general. Esto se alinea con el poder económico de estas ligas y específicamente de clubes como Real Madrid y Manchester City. La distribución de precios es notablemente asimétrica, con algunos valores muy altos que podrían considerarse outliers.
+
+### Correlaciones cruzadas
+Existe una correlación positiva moderada entre goles y asistencias (Corr: 0.586). Esto sugiere que los jugadores más efectivos tienden a destacar tanto en goles como en asistencias. La edad muestra correlaciones muy débiles con goles y asistencias.
 
 ## Jugadores mas caros
 
@@ -353,6 +405,36 @@ g4 <- ggplot(datos_augmentados, aes(.hat, .std.resid)) +
 grid.arrange(g1, g2, g3, g4, nrow=2)
 ```
 
+#### Interpretación del Modelo
+- El modelo establece una relación lineal simple entre el precio del jugador y los goles anotados
+- Por cada gol anotado, el precio del jugador aumenta en €3,267,375
+- El intercepto es €5,238,452, que representa el precio base estimado para un jugador sin goles
+- El modelo es estadísticamente significativo (p-value < 2.2e-16)
+- El R² ajustado es 0.2985, lo que indica que el modelo explica aproximadamente el 30% de la variabilidad en los precios
+
+#### Evaluación del Rendimiento
+- En datos de entrenamiento:
+  - RMSE: 15,388,866
+  - MAE: 9,179,813
+- En datos de prueba:
+  - RMSE: 17,503,869
+  - MAE: 9,732,598
+- La diferencia relativamente pequeña entre los errores de entrenamiento y prueba sugiere que el modelo no está sobreajustado
+
+#### Diagnóstico de Residuos
+- El gráfico de residuos vs valores predichos muestra un patrón de embudo, indicando heterocedasticidad
+- El QQ-plot muestra desviaciones significativas de la normalidad, especialmente en las colas
+- El Scale-location plot confirma la heterocedasticidad, con mayor variabilidad en los valores predichos más altos
+- El gráfico de leverage muestra varios puntos con alta influencia que podrían estar afectando el modelo
+
+#### Limitaciones del Modelo
+- La relación lineal simple puede ser demasiado básica para capturar la complejidad del precio de los jugadores
+- La presencia de heterocedasticidad sugiere que la variabilidad del precio aumenta con el número de goles
+- El bajo R² indica que hay otros factores importantes que no están siendo considerados
+- Los supuestos de normalidad y homocedasticidad no se cumplen adecuadamente
+
+Este modelo, aunque estadísticamente significativo, tiene limitaciones importantes para predecir el precio de los jugadores. La violación de los supuestos básicos y el bajo poder explicativo sugieren que se necesita un modelo más complejo que incorpore variables adicionales y posiblemente transformaciones de las variables existentes.
+
 ## Modelo "La edad NO es lo de menos"
 
 Precio = $Edad$ + $Edad^2$
@@ -424,6 +506,40 @@ g4 <- ggplot(datos_augmentados, aes(.hat, .std.resid)) +
 grid.arrange(g1, g2, g3, g4, nrow=2)
 ```
 
+#### Interpretación del Modelo
+- El modelo establece una relación cuadrática entre el precio del jugador y su edad
+- El precio aumenta con la edad hasta los 23 años, punto a partir del cual comienza a disminuir
+- Los coeficientes son:
+  - Edad: +5,113,615 (efecto lineal positivo)
+  - Edad²: -110,147 (efecto cuadrático negativo)
+  - Intercepto: -45,547,305
+- El modelo es estadísticamente significativo (p-value: 1.255e-13)
+- El R² ajustado es 0.04853, lo que indica que el modelo explica solo aproximadamente el 5% de la variabilidad en los precios
+
+#### Evaluación del Rendimiento
+- En datos de entrenamiento:
+  - RMSE: 17,914,627
+  - MAE: 10,519,126
+- En datos de prueba:
+  - RMSE: 18,482,683
+  - MAE: 10,655,848
+- Los errores son mayores que en el modelo de goles, sugiriendo que la edad por sí sola es un predictor más débil del precio
+
+#### Diagnóstico de Residuos
+- El gráfico de residuos vs valores predichos muestra un patrón de embudo similar al modelo anterior
+- El QQ-plot muestra desviaciones significativas de la normalidad, especialmente en las colas superiores
+- El Scale-location plot indica heterocedasticidad
+- El gráfico de leverage muestra algunos puntos influyentes, aunque menos pronunciados que en el modelo de goles
+
+#### Limitaciones del Modelo
+- El muy bajo R² sugiere que la edad por sí sola no es un buen predictor del precio
+- La relación cuadrática captura el hecho de que los jugadores alcanzan un pico de valor, pero el ajuste general es pobre
+- Los supuestos de normalidad y homocedasticidad siguen sin cumplirse
+- El modelo no captura otros factores importantes que afectan el precio
+
+Este modelo confirma que existe una relación no lineal entre la edad y el precio de los jugadores, con un punto máximo alrededor de los 23 años. Sin embargo, su bajo poder explicativo sugiere que la edad debe combinarse con otras variables para obtener predicciones más precisas.
+
+
 # Regresión Lineal Múltiple
 
 ## Modelo "Ahora va en serio"
@@ -488,6 +604,40 @@ g8 <- ggplot(datos_augmentados, aes(.hat, .std.resid)) +
 grid.arrange(g5, g6, g7, g8, nrow=2)
 ```
 
+#### Interpretación del Modelo
+- El modelo incorpora múltiples variables predictoras: goles, edad (lineal y cuadrática), asistencias, continente de origen y liga
+- Los coeficientes más significativos son:
+  - Goles: +2,189,855 por gol (p < 2e-16)
+  - Asistencias: +2,152,607 por asistencia (p < 2e-16)
+  - Edad: efecto cuadrático con máximo alrededor de los 23 años
+  - América: +4,494,113 respecto a África (p = 0.015)
+  - Bundesliga: +11,060,116 respecto a la liga de referencia (p < 2e-16)
+- El R² ajustado es 0.4733, indicando que el modelo explica aproximadamente el 47% de la variabilidad
+
+#### Evaluación del Rendimiento
+- En datos de entrenamiento:
+  - RMSE: 13,276,913
+  - MAE: 8,093,280
+- En datos de prueba:
+  - RMSE: 15,450,180
+  - MAE: 8,469,906
+- La diferencia moderada entre errores de entrenamiento y prueba sugiere un nivel aceptable de generalización
+
+#### Diagnóstico de Residuos
+- El gráfico de residuos vs valores predichos muestra una mejora en el patrón de heterocedasticidad
+- El QQ-plot indica una mejor aproximación a la normalidad en el centro de la distribución
+- El Scale-location plot muestra una variabilidad más estable que los modelos anteriores
+- El gráfico de leverage identifica menos puntos influyentes extremos
+
+#### Mejoras Respecto a Modelos Anteriores
+- El R² ajustado aumentó significativamente (de 0.30 y 0.05 a 0.47)
+- Los errores de predicción (RMSE y MAE) disminuyeron
+- Los diagnósticos de residuos muestran mejores propiedades estadísticas
+- La incorporación de variables categóricas captura efectos específicos por continente y liga
+
+Este modelo representa una mejora sustancial sobre los modelos simples anteriores, capturando efectos más complejos y reduciendo los errores de predicción. Sin embargo, aún hay espacio para mejoras, especialmente en el tratamiento de valores extremos y la posible incorporación de más variables relevantes.
+
+
 ## Modelo "Ahora va en serio 2"
 
 $log(Precio)$ = $Goles$ + $Edad$ + $Edad^2$ + $Asistencias$ + $Continente$ $de$ $nacimiento$ $del$ $jugador$ + $Liga$ $donde$ $juega$
@@ -551,6 +701,41 @@ g12 <- ggplot(datos_augmentados, aes(.hat, .std.resid)) +
   labs(title = "Residual vs leverage")
 grid.arrange(g9, g10, g11, g12, nrow=2)
 ```
+
+#### Interpretación del Modelo
+- El modelo utiliza la transformación logarítmica de la variable precio y mantiene las mismas variables predictoras
+- Los coeficientes más significativos son:
+  - Goles: +0.116 (p < 2e-16), indica un aumento del 12.3% en el precio por cada gol
+  - Asistencias: +0.173 (p < 2e-16), indica un aumento del 18.9% en el precio por cada asistencia
+  - Edad: efecto cuadrático significativo (p < 2e-16)
+  - América: +0.404 respecto a África (p = 0.007)
+  - Bundesliga: +0.818 respecto a la liga de referencia (p < 2e-16)
+- El R² ajustado es 0.4619, similar al modelo anterior pero con mejor interpretabilidad
+
+#### Evaluación del Rendimiento
+- En datos de entrenamiento:
+  - RMSE: 28,500,598
+  - MAE: 8,057,781
+- En datos de prueba:
+  - RMSE: 17,508,456
+  - MAE: 7,357,616
+- La transformación logarítmica mejora el MAE en los datos de prueba, aunque el RMSE es más alto
+
+#### Diagnóstico de Residuos
+- El gráfico de residuos vs valores predichos muestra una distribución más homogénea
+- El QQ-plot indica una notable mejora en la normalidad de los residuos
+- El Scale-location plot muestra una varianza más estable
+- El gráfico de leverage sugiere menos influencia de valores extremos
+
+### Mejoras Respecto al Modelo Anterior
+- Mejor interpretabilidad de los coeficientes en términos de porcentajes
+- Mejor cumplimiento de los supuestos de normalidad y homocedasticidad
+- Reducción del MAE en datos de prueba
+- Mayor estabilidad en la predicción de valores extremos
+
+La transformación logarítmica del precio mejora las propiedades estadísticas del modelo y facilita la interpretación de los efectos. Este modelo parece más adecuado para predecir el precio de los jugadores, especialmente cuando se considera la interpretabilidad y la estabilidad de las predicciones.
+
+
 
 # Regresión Lineal Múltiple Robusta
 
